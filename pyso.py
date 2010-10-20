@@ -316,7 +316,7 @@ def __fetch(path, results_key, **url_params):
 
     while True:
         query = urllib.urlencode(params)
-        url = "%s?%s" % (base_url, query); print url
+        url = "%s?%s" % (base_url, query)#; print url
         data = __get_response_data(url)
         response = json.loads(data)
         count = 0
