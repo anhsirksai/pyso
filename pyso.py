@@ -7,12 +7,13 @@ import gzip
 import itertools
 import math
 import time
+import urllib
+import urllib2
+
 try:
     import json
 except ImportError:
     import simplejson as json
-import urllib
-import urllib2
 
 try:
     from cStringIO import StringIO
@@ -21,19 +22,16 @@ except ImportError:
 
 __version__ = "0.1"
 __author__ = "Jonathon Watney <jonathonwatney@gmail.com>"
-#__all__ = ("APIError")
 
-__base_url = "http://api.stackoverflow.com"
-__api_version = "1.0"
-__default_page_size = 100
-__default_page = 1
-__question_orders = ("activity", "views", "creation", "votes")
-__answer_orders = ("activity", "views", "creation", "votes")
-__comment_orders = ("creation", "votes")
-__user_orders = ("reputation", "creation", "name")
-
-http_proxy = None # Not yet.
-api_key = "" # Set this here or before calling any of the functions.
+_site = "http://api.stackoverflow.com"
+_version = "1.0"
+_api_key = ""
+_default_page_size = 100
+_default_page = 1
+_question_orders = ("activity", "views", "creation", "votes")
+_answer_orders = ("activity", "views", "creation", "votes")
+_comment_orders = ("creation", "votes")
+_user_orders = ("reputation", "creation", "name")
 
 
 class APIError(Exception):
@@ -43,6 +41,22 @@ class APIError(Exception):
         self.code = code
         self.message = message
 
+
+def set_defaults(site, version, page_size=0):
+    """Update defaults for fetching."""
+    global _site, _version, _default_page_size
+
+    if not site.startswith("api."):
+        site = "api." + site
+
+    if not site.startswith("http://"):
+        site = "http://" + site
+
+    _site = site
+    _version = version
+    
+    if page_size > 0:
+        _default_page_size = page_size
 
 # Miscellaneous and utility site functions.
 def get_sites():
@@ -86,14 +100,14 @@ def get_tags(name_contains=None, start_date=None, end_date=None):
 def get_comments(ids, order_by=None, start_date=None, end_date=None):
     """Gets comments by ids."""
     path = "comments/%s" % __join(ids)
-    params = __translate(locals().copy(), __comment_orders)
+    params = __translate(locals().copy(), _comment_orders)
 
     return __fetch(path, "comments", **params)
 
 def get_posts_comments(ids, order_by=None, start_date=None, end_date=None):
     """Gets the comments associated with a set of posts (questions/answers)."""
     path = "posts/%s/comments" % __join(ids)
-    params = __translate(locals().copy(), __comment_orders)
+    params = __translate(locals().copy(), _comment_orders)
 
     return __fetch(path, "comments", **params)
 
@@ -143,7 +157,7 @@ def get_questions(ids, order_by=None, body=False, comments=False, start_date=Non
     are "activity", "views", "creation", or "votes".
     """
     path = "questions/%s" % __join(ids)
-    params = __translate(locals().copy(), __question_orders)
+    params = __translate(locals().copy(), _question_orders)
 
     return __fetch(path, "questions", **params)
 
@@ -153,7 +167,7 @@ def get_questions_answers(ids, order_by=None, body=False, comments=False, start_
     are "activity", "views", "creation", or "votes".
     """
     path = "questions/%s/answers" % __join(ids)
-    params = __translate(locals().copy(), __question_orders)
+    params = __translate(locals().copy(), _question_orders)
 
     return __fetch(path, "comments", **params)
 
@@ -163,7 +177,7 @@ def get_questions_comments(ids, order_by=None, start_date=None, end_date=None):
     are "creation", or "votes".
     """
     path = "questions/%s/comments" % __join(ids)
-    params = __translate(locals().copy(), __comment_orders)
+    params = __translate(locals().copy(), _comment_orders)
 
     return __fetch(path, "comments", **params)
 
@@ -180,7 +194,7 @@ def get_answers(ids, order_by=None, body=False, start_date=None, end_date=None):
     valid orders are "activity", "views", "creation" and "votes".
     """
     path = "answers/%s" % __join(ids)
-    params = __translate(locals().copy(), __answer_orders)
+    params = __translate(locals().copy(), _answer_orders)
 
     return __fetch(path, "answers", **params)
 
@@ -190,7 +204,7 @@ def get_answers_comments(ids, order_by=None, start_date=None, end_date=None):
     valid orders are "activity", "views", "creation" and "votes".
     """
     path = "answers/%s" % __join(ids)
-    params = __translate(locals().copy(), __comment_orders)
+    params = __translate(locals().copy(), _comment_orders)
 
     return __fetch(path, "comments", **params)
 
@@ -198,7 +212,7 @@ def get_answers_comments(ids, order_by=None, start_date=None, end_date=None):
 def get_all_users(name_contains=None, order_by=None, start_date=None, end_date=None):
     """Gets user summary information."""
     path = "users"
-    params = __translate(locals().copy(), __user_orders)
+    params = __translate(locals().copy(), _user_orders)
 
     if name_contains:
         params["filter"] = name_contains
@@ -214,7 +228,7 @@ def get_users(ids, order_by=None):
     print locals().copy()
 
     path = "users/%s" % __join(ids)
-    params = __translate(locals().copy(), __user_orders)
+    params = __translate(locals().copy(), _user_orders)
 
     return __fetch(path, "users", **params)
 
@@ -224,7 +238,7 @@ def get_users_questions(ids, order_by=None, body=False, comments=False, start_da
     recent "activity". Other valid sort orders are "views", "newest" and "votes".
     """
     path = "users/%s/questions" % __join(ids)
-    params = __translate(locals().copy(), __question_orders)
+    params = __translate(locals().copy(), _question_orders)
 
     return __fetch(path, "questions", **params)
 
@@ -234,7 +248,7 @@ def get_users_answers(ids, order_by=None, body=False, comments=False):
     valid orders are "activity", "views", "creation" and "votes".
     """
     path = "users/%s/answers" % __join(ids)
-    params = __translate(locals().copy(), __answer_orders)
+    params = __translate(locals().copy(), _answer_orders)
 
     return __fetch(path, "answers", **params)
 
@@ -244,7 +258,7 @@ def get_users_comments(ids, mentioned_user_id=None, order_by=None, start_date=No
     orders are "score".
     """
     path = "users/%s/comments" % __join(ids)
-    params = __translate(locals().copy(), __comment_orders)
+    params = __translate(locals().copy(), _comment_orders)
 
     if mentioned_user_id:
         path += "/%s" % mentioned_user_id
@@ -291,14 +305,14 @@ def get_users_tags(ids, order_by=None):
 def get_users_favorites(ids, order_by=None, body=False, comments=False, start_date=None, end_date=None):
     """Gets summary information for the questions that have been favorited by a set of users."""
     path = "users/%s/favorites" % __join(ids)
-    params = __translate(locals().copy(), __question_orders)
+    params = __translate(locals().copy(), _question_orders)
 
     return __fetch(path, "questions", **params)
 
 def get_all_moderators(name_contains=None, start_date=None, end_date=None):
     """Gets all the moderators on this site."""
     path = "users/moderators"
-    params = __translate(locals().copy(), __user_orders)
+    params = __translate(locals().copy(), _user_orders)
 
     return __fetch(path, "users", **params)
 
@@ -308,11 +322,11 @@ def __fetch(path, results_key, **url_params):
     results_key is the key of the results list. If url_params is given it's
     key/value pairs are used to as part of the API query string.
     """
-    base_url = "%s/%s/%s" % (__base_url, __api_version, path)
+    base_url = "%s/%s/%s" % (_site, _version, path)
     params = {
-        "key": api_key,
-        "pagesize": __default_page_size,
-        "page": __default_page
+        "key": _api_key,
+        "pagesize": _default_page_size,
+        "page": _default_page
         }
 
     params.update(url_params)
