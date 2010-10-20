@@ -14,7 +14,10 @@ except ImportError:
 import urllib
 import urllib2
 
-from cStringIO import StringIO
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from StringIO import StringIO
 
 __version__ = "0.1"
 __author__ = "Jonathon Watney <jonathonwatney@gmail.com>"
