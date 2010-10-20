@@ -1,0 +1,18 @@
+README
+
+A simple library providing access to the Stack Overflow family of site APIs.
+
+  import pyso
+
+  pyso.set_defaults("serverfault.com", "1.0")
+
+  print list(pyso.get_all_moderators)
+
+Functions able to return more than one result use generators. Use itertools to slice and dice.
+
+There are bugs. Please report them at the github issue tracker for the time being.
+
+http://github.com/jwatney/pyso/issues
+
+Thanks,
+Jonathon.
