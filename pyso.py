@@ -5,7 +5,6 @@ pyso.py - Python Stack Overflow library, aka a love letter to @frankythebadcop.
 """
 import gzip
 import itertools
-import math
 import time
 import urllib
 import urllib2
