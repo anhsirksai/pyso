@@ -22,11 +22,6 @@ except ImportError:
 __version__ = "0.1"
 __author__ = "Jonathon Watney <jonathonwatney@gmail.com>"
 
-_site = "http://api.stackoverflow.com"
-_version = "1.0"
-_api_key = ""
-_default_page_size = 100
-_default_page = 1
 _question_orders = ("activity", "views", "creation", "votes")
 _answer_orders = ("activity", "views", "creation", "votes")
 _comment_orders = ("creation", "votes")
@@ -41,59 +36,128 @@ class APIError(Exception):
         self.message = message
 
 
-def set_defaults(site, version, page_size=0):
-    """Update defaults for fetching."""
-    global _site, _version, _default_page_size
+class APISite(object):
+    """Provides a way to fetch data from an Stack Overflow API site."""
+    def __init__(self, name, version="1.0", api_key="", page_size=100):
+        if not name.startswith("http://"):
+            name = "http://" + name
 
-    if not site.startswith("api."):
-        site = "api." + site
+        self._name = name
+        self._version = version
+        self._api_key = api_key
+        self._page_size = page_size
+        self._start_page = 1
 
-    if not site.startswith("http://"):
-        site = "http://" + site
+    def fetch(self, path, results_key, **url_params):
+        """
+        Fetches all the results for a given path where path is the API URL path.
+        results_key is the key of the results list. If url_params is given it's
+        key/value pairs are used to build the API query string.
+        """
+        base_url = "%s/%s/%s" % (self._name, self._version, path)
+        params = {
+            "key": self._api_key,
+            "pagesize": self._page_size,
+            "page": self._start_page
+            }
 
-    _site = site
-    _version = version
+        params.update(url_params)
+
+        while True:
+            query = urllib.urlencode(params)
+            url = "%s?%s" % (base_url, query)
+            data = self._get_response_data(url)
+            response = json.loads(data)
+            count = 0
+
+            if "error" in response:
+                error = response["error"]
+                code = error["Code"]
+                message = error["Message"]
+
+                raise APIError(url, code, message)
+
+            if results_key:
+                results = response[results_key]
+            else:
+                results = response
+
+            if len(results) < 1:
+                break
+
+            for result in results:
+                yield result
+
+            if len(results) < params["pagesize"]:
+                break
+
+            params["page"] += 1
+
+    def _get_response_data(self, url):
+        """Gets the response encoded as a string."""
+        request = urllib2.Request(url)
+
+        request.add_header("Accept-Encoding", "gzip")
+
+        response = None
+
+        try:
+            response = urllib2.urlopen(request)
+            data = response.read()
+
+            if response.headers.get("content-encoding") == "gzip":
+                data = gzip.GzipFile(fileobj=StringIO(data)).read()
+        finally:
+            if response:
+                response.close()
     
-    if page_size > 0:
-        _default_page_size = page_size
+        return data
+
+
+_site = APISite("api.stackoverflow.com")
+
+def install_site(site):
+    """Installs site to use as the default API site."""
+    global _site
+    _site = site
 
 # Miscellaneous and utility site functions.
 def get_sites():
     """Returns a list of all the sites in the Stack Exchange Network."""
-    return __fetch("sites", "api_sites")
+    return _site.fetch("sites", "api_sites")
 
 def get_stats():
     """Gets various system statistics."""
-    return next(__fetch("stats", "statistics"))
+    return next(_site.fetch("stats", "statistics"))
 
 def get_errors(id):
     """Simulates an error given its code."""
-    return __fetch("errors/%s" % id, None)
+    return _site.fetch("errors/%s" % id, None)
 
 def get_all_badges():
     """Gets all badges, in alphabetical order."""
-    return __fetch("badges", "badges")
+    return _site.fetch("badges", "badges")
 
 def get_all_standard_badges():
     """Gets all standard, non-tag-based badges in alphabetical order."""
-    return __fetch("badges/name", "badges")
+    return _site.fetch("badges/name", "badges")
 
 def get_all_tag_based_badges():
     """Gets all tag-based badges in alphabetical order."""
-    return __fetch("badges/tags", "badges")
+    return _site.fetch("badges/tags", "badges")
 
 def get_badges(ids, start_date=None, end_date=None):
     """Gets the users that have been awarded the badges identified in 'id'."""
     path = "badges/%s" % __join(ids)
     params = __translate(locals().copy(), ("popular", "activity", "name"))
 
-    return __fetch(path, "badges", **params)
+    return _site.fetch(path, "badges", **params)
 
 def get_tags(name_contains=None, start_date=None, end_date=None):
     """Gets the tags on all questions, along with their usage counts."""
     params = __translate(locals().copy(), ("popular", "activity", "name"))
 
-    return __fetch("tags", "tags", **params)
+    return _site.fetch("tags", "tags", **params)
 
 # Question, answer and post functions.
 def get_comments(ids, order_by=None, start_date=None, end_date=None):
@@ -101,28 +165,28 @@ def get_comments(ids, order_by=None, start_date=None, end_date=None):
     path = "comments/%s" % __join(ids)
     params = __translate(locals().copy(), _comment_orders)
 
-    return __fetch(path, "comments", **params)
+    return _site.fetch(path, "comments", **params)
 
 def get_posts_comments(ids, order_by=None, start_date=None, end_date=None):
     """Gets the comments associated with a set of posts (questions/answers)."""
     path = "posts/%s/comments" % __join(ids)
     params = __translate(locals().copy(), _comment_orders)
 
-    return __fetch(path, "comments", **params)
+    return _site.fetch(path, "comments", **params)
 
 def get_posts_revisions(ids, start_date=None, end_date=None):
     """Gets the post history revisions for a set of posts."""
     path = "revisions/%s" % __join(ids)
     params = __translate(locals().copy())
 
-    return __fetch(path, "revisions", **params)
+    return _site.fetch(path, "revisions", **params)
 
 def get_posts_revision(ids, revision_id, start_date=None, end_date=None):
     """Get a specific post revision."""
     path = "revisions/%s/%s" % (__join(ids), revision_id)
     params = __translate(locals().copy())
 
-    return __fetch(path, "revisions", **params)
+    return _site.fetch(path, "revisions", **params)
 
 def get_all_questions(order_by=None, tags=None, body=False, comments=False, start_date=None, end_date=None):
     """
@@ -133,7 +197,7 @@ def get_all_questions(order_by=None, tags=None, body=False, comments=False, star
     path = "questions"
     params = __translate(locals().copy(), ("activity", "votes", "creation", "featured", "hot", "week", "month"))
 
-    return __fetch(path, "questions", **params)
+    return _site.fetch(path, "questions", **params)
 
 def get_all_unanswered_questions(order_by=None, tags=None, body=False, comments=False, start_date=None, end_date=None):
     """
@@ -144,7 +208,7 @@ def get_all_unanswered_questions(order_by=None, tags=None, body=False, comments=
     path = "questions"
     params = __translate(locals().copy(), ("votes", "creation"))
 
-    return __fetch(path, "questions", **params)
+    return _site.fetch(path, "questions", **params)
 
 def get_question(question_id, body=False, comments=False, start_date=None, end_date=None):
     """Get the question with the given question_id."""
@@ -158,7 +222,7 @@ def get_questions(ids, order_by=None, body=False, comments=False, start_date=Non
     path = "questions/%s" % __join(ids)
     params = __translate(locals().copy(), _question_orders)
 
-    return __fetch(path, "questions", **params)
+    return _site.fetch(path, "questions", **params)
 
 def get_questions_answers(ids, order_by=None, body=False, comments=False, start_date=None, end_date=None):
     """
@@ -168,7 +232,7 @@ def get_questions_answers(ids, order_by=None, body=False, comments=False, start_
     path = "questions/%s/answers" % __join(ids)
     params = __translate(locals().copy(), _question_orders)
 
-    return __fetch(path, "comments", **params)
+    return _site.fetch(path, "comments", **params)
 
 def get_questions_comments(ids, order_by=None, start_date=None, end_date=None):
     """
@@ -178,14 +242,14 @@ def get_questions_comments(ids, order_by=None, start_date=None, end_date=None):
     path = "questions/%s/comments" % __join(ids)
     params = __translate(locals().copy(), _comment_orders)
 
-    return __fetch(path, "comments", **params)
+    return _site.fetch(path, "comments", **params)
 
 def get_questions_timeline(ids, start_date=None, end_date=None):
     """Get the timelines for the given question_ids."""
     path = "questions/%s/timeline" % __join(ids)
     params = __translate(locals().copy())
 
-    return __fetch(path, "post_timelines", **params)
+    return _site.fetch(path, "post_timelines", **params)
 
 def get_answers(ids, order_by=None, body=False, start_date=None, end_date=None):
     """
@@ -195,7 +259,7 @@ def get_answers(ids, order_by=None, body=False, start_date=None, end_date=None):
     path = "answers/%s" % __join(ids)
     params = __translate(locals().copy(), _answer_orders)
 
-    return __fetch(path, "answers", **params)
+    return _site.fetch(path, "answers", **params)
 
 def get_answers_comments(ids, order_by=None, start_date=None, end_date=None):
     """
@@ -205,7 +269,7 @@ def get_answers_comments(ids, order_by=None, start_date=None, end_date=None):
     path = "answers/%s" % __join(ids)
     params = __translate(locals().copy(), _comment_orders)
 
-    return __fetch(path, "comments", **params)
+    return _site.fetch(path, "comments", **params)
 
 # User based fucntions.
 def get_all_users(name_contains=None, order_by=None, start_date=None, end_date=None):
@@ -216,7 +280,7 @@ def get_all_users(name_contains=None, order_by=None, start_date=None, end_date=N
     if name_contains:
         params["filter"] = name_contains
 
-    return __fetch(path, "users", **params)
+    return _site.fetch(path, "users", **params)
 
 def get_user(user_id):
     """Gets a user by user_id."""
@@ -229,7 +293,7 @@ def get_users(ids, order_by=None):
     path = "users/%s" % __join(ids)
     params = __translate(locals().copy(), _user_orders)
 
-    return __fetch(path, "users", **params)
+    return _site.fetch(path, "users", **params)
 
 def get_users_questions(ids, order_by=None, body=False, comments=False, start_date=None, end_date=None):
     """
@@ -239,7 +303,7 @@ def get_users_questions(ids, order_by=None, body=False, comments=False, start_da
     path = "users/%s/questions" % __join(ids)
     params = __translate(locals().copy(), _question_orders)
 
-    return __fetch(path, "questions", **params)
+    return _site.fetch(path, "questions", **params)
 
 def get_users_answers(ids, order_by=None, body=False, comments=False):
     """
@@ -249,7 +313,7 @@ def get_users_answers(ids, order_by=None, body=False, comments=False):
     path = "users/%s/answers" % __join(ids)
     params = __translate(locals().copy(), _answer_orders)
 
-    return __fetch(path, "answers", **params)
+    return _site.fetch(path, "answers", **params)
 
 def get_users_comments(ids, mentioned_user_id=None, order_by=None, start_date=None, end_date=None):
     """
@@ -262,34 +326,34 @@ def get_users_comments(ids, mentioned_user_id=None, order_by=None, start_date=No
     if mentioned_user_id:
         path += "/%s" % mentioned_user_id
 
-    return __fetch(path, "comments", **params)
+    return _site.fetch(path, "comments", **params)
 
 def get_users_timelines(ids, start_date=None, end_date=None):
     """Gets users' timelines by user_ids."""
     path = "users/%s/timeline" % __join(ids)
     params = __translate(locals().copy())
 
-    return __fetch(path, "user_timelines", **params)
+    return _site.fetch(path, "user_timelines", **params)
 
 def get_user_reputation_changes(ids, start_date=None, end_date=None):
     """Gets a users' reputations by user_ids."""
     path = "users/%s/reputation" % __join(ids)
     params = __translate(locals().copy())
 
-    return __fetch(path, "rep_changes", **params)
+    return _site.fetch(path, "rep_changes", **params)
 
 def get_users_mentions(ids, order_by=None, start_date=None, end_date=None):
     """Gets user mentions by user_ids."""
     path = "users/%s/mentioned" % __join(ids)
     params = __translate(locals().copy(), ("creation", "name"))
 
-    return __fetch(path, "comments", **params)
+    return _site.fetch(path, "comments", **params)
 
 def get_users_badges(ids):
     """Gets the badges that have been awarded to a set of users."""
     path = "users/%s/badges" % __join(ids)
 
-    return __fetch(path, "badges")
+    return _site.fetch(path, "badges")
 
 def get_users_tags(ids, order_by=None):
     """ 
@@ -299,86 +363,21 @@ def get_users_tags(ids, order_by=None):
     path = "users/%s/tags" % __join(ids)
     params = __translate(locals().copy(), ("popular", "activity", "name"))
 
-    return __fetch(path, "tags", **params)
+    return _site.fetch(path, "tags", **params)
 
 def get_users_favorites(ids, order_by=None, body=False, comments=False, start_date=None, end_date=None):
     """Gets summary information for the questions that have been favorited by a set of users."""
     path = "users/%s/favorites" % __join(ids)
     params = __translate(locals().copy(), _question_orders)
 
-    return __fetch(path, "questions", **params)
+    return _site.fetch(path, "questions", **params)
 
 def get_all_moderators(name_contains=None, start_date=None, end_date=None):
     """Gets all the moderators on this site."""
     path = "users/moderators"
     params = __translate(locals().copy(), _user_orders)
 
-    return __fetch(path, "users", **params)
-
-def __fetch(path, results_key, **url_params):
-    """
-    Fetches all the results for a given path where path is the API URL path.
-    results_key is the key of the results list. If url_params is given it's
-    key/value pairs are used to as part of the API query string.
-    """
-    base_url = "%s/%s/%s" % (_site, _version, path)
-    params = {
-        "key": _api_key,
-        "pagesize": _default_page_size,
-        "page": _default_page
-        }
-
-    params.update(url_params)
-
-    while True:
-        query = urllib.urlencode(params)
-        url = "%s?%s" % (base_url, query)#; print url
-        data = __get_response_data(url)
-        response = json.loads(data)
-        count = 0
-
-        if "error" in response:
-            error = response["error"]
-            code = error["Code"]
-            message = error["Message"]
-
-            raise APIError(url, code, message)
-
-        if results_key:
-            results = response[results_key]
-        else:
-            results = response
-
-        if len(results) < 1:
-            break
-
-        for result in results:
-            yield result
-
-        if len(results) < params["pagesize"]:
-            break
-
-        params["page"] += 1
-
-def __get_response_data(url):
-    """Gets the response encoded as a string."""
-    request = urllib2.Request(url)
-
-    request.add_header("Accept-Encoding", "gzip")
-
-    response = None
-
-    try:
-        response = urllib2.urlopen(request)
-        data = response.read()
-
-        if response.headers.get("content-encoding") == "gzip":
-            data = gzip.GzipFile(fileobj=StringIO(data)).read()
-    finally:
-        if response:
-            response.close()
-    
-    return data
+    return _site.fetch(path, "users", **params)
 
 def __join(ids):
     """Joins a sequence of ids into a semicolon delimited string."""
