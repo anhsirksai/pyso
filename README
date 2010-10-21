@@ -1,14 +1,16 @@
-README
+PYSO - A Python Stack Overflow API wrapper library.
 
-A simple library providing access to the Stack Overflow family of site APIs.
+A simple example.
 
   import pyso
 
-  pyso.set_defaults("serverfault.com", "1.0")
+  # Install the Server Fault API.
+  pyso.install_site("api.serverfault.com", "1.0")
 
-  print list(pyso.get_all_moderators)
+  # Get all the names of the moderators.
+  print list((m["display_name"] for m in pyso.get_all_moderators()))
 
-Functions able to return more than one result use generators. Use itertools to slice and dice.
+PYSO functions able to return more than one result use generators, so use itertools to slice and dice.
 
 There are bugs. Please report them at the github issue tracker for the time being.
 
