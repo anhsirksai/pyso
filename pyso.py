@@ -142,10 +142,10 @@ def get_all_badges():
     return _site.fetch("badges", "badges")
 
 def get_all_standard_badges():
-    """Gets all standard, non-tag-based badges in alphabetical order."""
+    """Gets all standard, non-tag-based, badges in alphabetical order."""
     return _site.fetch("badges/name", "badges")
 
-def get_all_tag_based_badges():
+def get_all_tag_badges():
     """Gets all tag-based badges in alphabetical order."""
     return _site.fetch("badges/tags", "badges")
 
