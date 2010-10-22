@@ -48,6 +48,9 @@ class APISite(object):
         self._page_size = page_size
         self._start_page = 1
 
+    def __repr__(self):
+        return (self._name, self._version, self._api_key)
+
     def fetch(self, path, results_key, **url_params):
         """
         Fetches all the results for a given path where path is the API URL path.
