@@ -39,6 +39,7 @@ _question_orders = ("activity", "views", "creation", "votes")
 _answer_orders = ("activity", "views", "creation", "votes")
 _comment_orders = ("creation", "votes")
 _user_orders = ("reputation", "creation", "name")
+_tag_badge_orders = ("popular", "activity", "name")
 
 
 class APIError(Exception):
@@ -163,15 +164,15 @@ def get_all_tag_badges():
     return _site.fetch("badges/tags", "badges")
 
 def get_badges(ids, start_date=None, end_date=None):
-    """Gets the users that have been awarded the badges identified in 'id'."""
+    """Gets the users that have been awarded the badges identified in ids."""
     path = "badges/%s" % __join(ids)
-    params = __translate(locals().copy(), ("popular", "activity", "name"))
+    params = __translate(locals().copy(), _tag_badge_orders)
 
     return _site.fetch(path, "badges", **params)
 
 def get_tags(name_contains=None, start_date=None, end_date=None):
     """Gets the tags on all questions, along with their usage counts."""
-    params = __translate(locals().copy(), ("popular", "activity", "name"))
+    params = __translate(locals().copy(), _tag_badge_orders)
 
     return _site.fetch("tags", "tags", **params)
 
@@ -205,22 +206,15 @@ def get_posts_revision(ids, revision_id, start_date=None, end_date=None):
     return _site.fetch(path, "revisions", **params)
 
 def get_all_questions(order_by=None, tags=None, body=False, comments=False, start_date=None, end_date=None):
-    """
-    Gets all questions ordered by activity. Other valid sort orders are
-    "featured", "hot", "week", "month", "votes". Provide a list of tags to get
-    questions with only those tags. order_by is ignored if tags is not None.
-    """
+    """Gets question summary information."""
     path = "questions"
-    params = __translate(locals().copy(), ("activity", "votes", "creation", "featured", "hot", "week", "month"))
+    orders = ("activity", "votes", "creation", "featured", "hot", "week", "month")
+    params = __translate(locals().copy(), orders)
 
     return _site.fetch(path, "questions", **params)
 
 def get_all_unanswered_questions(order_by=None, tags=None, body=False, comments=False, start_date=None, end_date=None):
-    """
-    Gets all questions ordered by activity. Other valid sort orders are
-    "featured", "hot", "week", "month", "votes". Provide a list of tags to get
-    questions with only those tags. order_by is ignored if tags is not None.
-    """
+    """Gets questions that have no upvoted answers."""
     path = "questions"
     params = __translate(locals().copy(), ("votes", "creation"))
 
@@ -231,57 +225,42 @@ def get_question(question_id, body=False, comments=False, start_date=None, end_d
     return next(get_questions([question_id], body, comments, start_date, end_date))
 
 def get_questions(ids, order_by=None, body=False, comments=False, start_date=None, end_date=None):
-    """
-    Gets the set of questions given by question_ids. Valid sort orders
-    are "activity", "views", "creation", or "votes".
-    """
+    """Gets the set questions identified in ids."""
     path = "questions/%s" % __join(ids)
     params = __translate(locals().copy(), _question_orders)
 
     return _site.fetch(path, "questions", **params)
 
 def get_questions_answers(ids, order_by=None, body=False, comments=False, start_date=None, end_date=None):
-    """
-    Gets any comments to the questions given by question_ids. Valid sort orders
-    are "activity", "views", "creation", or "votes".
-    """
+    """Gets any answers to the questions in ids."""
     path = "questions/%s/answers" % __join(ids)
     params = __translate(locals().copy(), _question_orders)
 
-    return _site.fetch(path, "comments", **params)
+    return _site.fetch(path, "answers", **params)
 
 def get_questions_comments(ids, order_by=None, start_date=None, end_date=None):
-    """
-    Gets any answers to the questions given by question_ids. Valid sort orders
-    are "creation", or "votes".
-    """
+    """Gets the comments associated with a set of questions."""
     path = "questions/%s/comments" % __join(ids)
     params = __translate(locals().copy(), _comment_orders)
 
     return _site.fetch(path, "comments", **params)
 
 def get_questions_timeline(ids, start_date=None, end_date=None):
-    """Get the timelines for the given question_ids."""
+    """Get the timelines for the given ids."""
     path = "questions/%s/timeline" % __join(ids)
     params = __translate(locals().copy())
 
     return _site.fetch(path, "post_timelines", **params)
 
 def get_answers(ids, order_by=None, body=False, start_date=None, end_date=None):
-    """
-    Get all answers with the given answer_ids ordered by most activity. Other
-    valid orders are "activity", "views", "creation" and "votes".
-    """
+    """Gets the set of answers enumerated in ids."""
     path = "answers/%s" % __join(ids)
     params = __translate(locals().copy(), _answer_orders)
 
     return _site.fetch(path, "answers", **params)
 
 def get_answers_comments(ids, order_by=None, start_date=None, end_date=None):
-    """
-    Get all answers with the given answer_ids ordered by most activity. Other
-    valid orders are "activity", "views", "creation" and "votes".
-    """
+    """Gets the comments associated with a set of answers."""
     path = "answers/%s" % __join(ids)
     params = __translate(locals().copy(), _comment_orders)
 
@@ -304,38 +283,27 @@ def get_user(user_id):
 
 def get_users(ids, order_by=None):
     """Gets summary information for a set of users."""
-    print locals().copy()
-
     path = "users/%s" % __join(ids)
     params = __translate(locals().copy(), _user_orders)
 
     return _site.fetch(path, "users", **params)
 
 def get_users_questions(ids, order_by=None, body=False, comments=False, start_date=None, end_date=None):
-    """
-    Get all the questions asked by a user with the given user_id ordered by
-    recent "activity". Other valid sort orders are "views", "newest" and "votes".
-    """
+    """Gets question summary information for a set of users."""
     path = "users/%s/questions" % __join(ids)
     params = __translate(locals().copy(), _question_orders)
 
     return _site.fetch(path, "questions", **params)
 
 def get_users_answers(ids, order_by=None, body=False, comments=False):
-    """
-    Get all answers for the given user_id ordered by most activity. Other
-    valid orders are "activity", "views", "creation" and "votes".
-    """
+    """Gets answer summary information for a set of users."""
     path = "users/%s/answers" % __join(ids)
     params = __translate(locals().copy(), _answer_orders)
 
     return _site.fetch(path, "answers", **params)
 
 def get_users_comments(ids, mentioned_user_id=None, order_by=None, start_date=None, end_date=None):
-    """
-    Get all comments for the given user_id ordered by most recent. Other valid
-    orders are "score".
-    """
+    """Gets the comments that a set of users have made."""
     path = "users/%s/comments" % __join(ids)
     params = __translate(locals().copy(), _comment_orders)
 
@@ -345,21 +313,21 @@ def get_users_comments(ids, mentioned_user_id=None, order_by=None, start_date=No
     return _site.fetch(path, "comments", **params)
 
 def get_users_timelines(ids, start_date=None, end_date=None):
-    """Gets users' timelines by user_ids."""
+    """Gets actions a set of users have performed."""
     path = "users/%s/timeline" % __join(ids)
     params = __translate(locals().copy())
 
     return _site.fetch(path, "user_timelines", **params)
 
 def get_user_reputation_changes(ids, start_date=None, end_date=None):
-    """Gets a users' reputations by user_ids."""
+    """Gets information on reputation changes for a set of users."""
     path = "users/%s/reputation" % __join(ids)
     params = __translate(locals().copy())
 
     return _site.fetch(path, "rep_changes", **params)
 
 def get_users_mentions(ids, order_by=None, start_date=None, end_date=None):
-    """Gets user mentions by user_ids."""
+    """Gets comments that are directed at a set of users."""
     path = "users/%s/mentioned" % __join(ids)
     params = __translate(locals().copy(), ("creation", "name"))
 
@@ -372,10 +340,7 @@ def get_users_badges(ids):
     return _site.fetch(path, "badges")
 
 def get_users_tags(ids, order_by=None):
-    """ 
-    Gets the tags that a set of users has participated in. Valid orders are
-    "asc" and "desc".
-    """
+    """Gets the tags that a set of users has participated in."""
     path = "users/%s/tags" % __join(ids)
     params = __translate(locals().copy(), ("popular", "activity", "name"))
 
