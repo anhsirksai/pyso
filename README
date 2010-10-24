@@ -1,20 +1,56 @@
-PYSO - A Python Stack Overflow API wrapper library.
+pyso
+====
 
-A simple example.
+Purpose
+-------
 
-  import pyso
+Provides bindings for the Stack Overflow API.
 
-  # Install the Server Fault API.
-  pyso.install_site("api.serverfault.com", "1.0")
+Documentation
+-------------
 
-  # Get all the names of the moderators.
-  print list((m["display_name"] for m in pyso.get_all_moderators()))
+Documentation is incomplete so read the source.
 
-PYSO functions able to return more than one result use generators, so use itertools to slice and dice.
+Prerequisites
+-------------
 
-There are bugs. Please report them at the github issue tracker for the time being.
+To use pyso, you need Python, at least version 2.6. Python is a
+programming language, available from http://www.python.org for free.
 
-http://github.com/jwatney/pyso/issues
+Installation
+------------
 
-Thanks,
-Jonathon.
+- *If you have an older version of pyso installed, delete it or move it
+  somewhere else, so that it doesn't conflict with the new version!*
+
+- Unpack the archive file containing the distribution files. For example:
+
+    tar xzf pyso-0.2.tar.gz
+
+- Make the directory to where the files were unpacked your current directory.
+  For example:
+
+    cd pyso-0.2
+
+- Type
+
+    python setup.py install
+
+  at the shell prompt. On Unix/Linux, you have to be root to perform the
+  installation. Likewise, you have to be logged in as administrator if you
+  install on Windows.
+
+  If you want to customize the installation paths, please read
+  http://docs.python.org/inst/inst.html.
+
+License
+-------
+
+pyso is Open Source Software. It is distributed under the GPL.
+
+Authors
+-------
+
+Jonathon Watney <jonathonwatney@gmail.com>
+
+Feedback is welcome. Drop by github.com. <http://github.com/jwatney/pyso>
